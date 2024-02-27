@@ -1,0 +1,157 @@
+---
+title: "Homework 5"
+author: "Valentina Trevino"
+date: "2024-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(tibble)
+library(dplyr)
+library(kableExtra)
+library(mosaic)
+library(minpack.lm)
+```
+
+### Problem 1 - Iron Bank ###
+#### The Securities and Exchange Commission (SEC) is investigating the Iron Bank, where a cluster of employees have recently been identified in various suspicious patterns of securities trading that violate federal “insider trading” laws. Here are few basic facts about the situation: ####
+#### • Of the last 2021 trades by Iron Bank employees, 70 were flagged by the SEC’s detection algorithm. ####
+#### • But trades can be flagged every now and again even when no illegal market activity has taken place. ####
+#### In fact, the SEC estimates that the baseline probability that any legal trade will be flagged by their algorithm is 2.4%. ####
+#### • For that reason, the SEC often monitors individual and institutional trading but does not investigate incidents that look plausibly consistent with random variability in trading patterns. In other words, they won’t investigate unless it seems clear that a cluster of trades is being flagged at a rate significantly higher than the baseline rate of 2.4%. ####
+#### Are the observed data (70 flagged trades out of 2021) consistent with the SEC’s null hypothesis that, over the long run, securities trades from the Iron Bank are flagged at the same 2.4% baseline rate as that of other traders? ####
+#### Use Monte Carlo simulation (with at least 100000 simulations) to calculate a p-value under this null hypothesis. Include the following items in your write-up: ####
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+
+# Total Trades = 2021
+# Baseline Rate = 0.024
+# Flagged Trades = 70
+
+nflip(n=2021, prob=0.024)
+iron_sim = do(100000)*nflip(n=2021, prob=0.024)
+
+p_value <- sum(iron_sim >= 70) / 100000
+
+ggplot() +
+  geom_histogram(data = data.frame(iron_sim), aes(x = nflip), binwidth = 1, fill = "darkturquoise", color = "black") +
+  geom_vline(xintercept = 70, linetype = "dashed", color = "red", size = 1) + annotate("text", x = 78, y = 220, label = paste("p-value:", round(p_value, 4)), color = "red", size = 4.2) +
+  labs(x = "Number of Flagged Trades", y = "Count", title = "Distribution of Flagged Trades") + theme_minimal() + theme(text = element_text(size = 12)) 
+```
+
+#### The null hypothesis we are testing is that the 70 Iron Bank trades are flagged at the same 2.4% baseline rate. ####
+#### After calculating the p-value, which turned out to be approximately 0.002, significantly less than the typical significance level of 0.05, we can conclude that Iron Bank is not flagged at the same rate as other traders. ####
+
+
+### Problem 2: health inspections ###
+
+#### The local Health Department is investigating a popular local restaurant chain, Gourmet Bites, after receiving a higher-than-usual number of health code violation reports. Here are a few key points about the situation:####
+#### • Over the last year, 1500 health inspections were conducted across various restaurants in the city, with various branches of Gourmet Bites inspected a total of 50 times. ####
+#### • Of these 50 inspections, 8 resulted in health code violations being reported. ####
+#### • Typically, the Health Department’s data shows that, on average, 3% of all restaurant inspections result in health code violations due to random issues that can occur even in well-managed establishments. ####
+#### The Health Department wants to ensure that any action taken is based on solid evidence that Gourmet Bites’ rate of health code violations is significantly higher than the citywide average of 3%. ####
+#### Question: Are the observed data for Gourmet Bites consistent with the Health Department’s null hypothesis that, on average, restaurants in the city are cited for health code violations at the same 3% baseline rate? ####
+#### Use a Monte Carlo simulation (with at least 100,000 simulations) to calculate a p-value under this null hypothesis. Follow the same answer format as in the prior problem. ####
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+# Total Inspections = 50
+# Baseline Rate = 0.03
+# Total Violations = 8
+
+nflip(n=50, prob=0.03)
+
+health_sim = do(100000)*nflip(n=50, prob=0.03)
+sum(health_sim >= 8)
+p_value2 <- sum(health_sim >= 8) / 100000
+
+ggplot() +
+  geom_histogram(data = data.frame(iron_sim), aes(x = nflip), binwidth = 1, fill = "darkturquoise", color = "black") +
+  geom_vline(xintercept = 70, linetype = "dashed", color = "red", size = 1) + 
+  annotate("text", x = 76, y = 1000, label = paste("p-value:", round(p_value2, 4)), color = "red", size = 3.2) + 
+  labs(x = "Number of Health Code Violations", y = "Count", title = "Distribution of Violations at Gourmet Bites") +  theme_minimal() + theme(text = element_text(size = 12)) 
+```
+
+#### The null hypothesis we are testing is that Gourmet Bites' rate of health code violations (having 8 violations) is not over the citywide average rate of 3%. ####
+#### After calculating the p-value, we found it to be significantly smaller than 0.05. Thus, we conclude that Gourmet Bites' rate of health code violations does not align with the citywide rate, rejecting the null hypothesis. ####
+
+## Problem 3: LLM watermarking ##
+### Part A ###
+#### Finding chi-squared: ####
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+
+setwd("/Users/valentinatrevino/Desktop/spring '24/SDS")
+sentences <- readLines("brown_sentences.txt")
+letter_frequencies <-read.csv("letter_frequencies.csv")
+
+clean_sent <- gsub("[^[:alnum:] ]", "", sentences)
+clean_sent <- toupper((clean_sent))
+
+freq1 <- c()
+for(i in 1:length(clean_sent)){
+  freq1[[i]] <- table(factor(unlist(strsplit(clean_sent[i], ""), use.names=FALSE), levels=letter_frequencies$Letter))
+}
+data_f <- as.data.frame(do.call(rbind, freq1))
+freq2 <- c()
+for (i in 1:length(clean_sent)){
+   freq2[[i]] <- letter_frequencies$Probability * nchar(clean_sent[i])
+}
+data_f_2 <- as.data.frame(do.call(rbind, freq2))
+chi_squared <- rowSums((data_f_2-data_f)^2/ data_f_2)
+head(chi_squared,10)
+```
+
+### Part B ### 
+#### P-Values of ten sentence examples: ####
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+ex_sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.", 
+  
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+clean_ex <- gsub("[^[:alnum:] ]", "", ex_sentences)
+clean_ex <- toupper((clean_ex))
+freq3 <- c()
+
+for(i in 1:length(clean_ex)){
+  freq3[[i]] <- table(factor(unlist(strsplit(clean_ex[i], ""), use.names=FALSE), levels=letter_frequencies$Letter))
+}
+freq_dataF <- as.data.frame(do.call(rbind, freq3))
+freq4 <- c()
+for (i in 1:length(clean_ex)){
+   freq4[[i]] <- letter_frequencies$Probability * nchar(clean_ex[i])
+}
+
+freq_final <- as.data.frame(do.call(rbind, freq4))
+chi_ex <- rowSums((freq_final - freq_dataF)^2/ freq_final)
+p_values <- c()
+for (i in 1:length(clean_ex)){
+  p_values[[i]] <- sum(chi_squared >= chi_ex[i])/length(chi_squared)
+}
+
+for (i in 1:length(p_values)){
+  print(round(as.numeric(p_values[i]),3))
+}
+```
+
+#### As we can see in the 10 p-values we generated from the 10 example sentences, the only p-value that seems to be under 0.05 is the p-value for sentence #6. Having said this, we can probably infer that this is the sentence that has been generated by an LLM. ####
